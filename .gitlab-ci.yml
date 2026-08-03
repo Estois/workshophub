@@ -1,0 +1,77 @@
+# WorkshopHub GitLab CI/CD Pipeline
+#
+# Stages:
+#   check    — runs on every merge request (install, test, lint, format)
+#   security — runs on push / MR / schedule (Gitleaks always, Trivy as configured)
+#   build    — runs on push to main on shared GitLab runners (build only; no prod start)
+
+stages:
+  - check
+  - security
+  - build
+
+# ── Merge Request Check ────────────────────────────────────────────────────────
+# Equivalent to .github/workflows/pr-check.yml
+# Runs on every merge request targeting main.
+mr-check:
+  stage: check
+  image: node:24-slim
+  variables:
+    DATABASE_URL: "file:../database/workshophub-ci.sqlite"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+  before_script:
+    - npm install -g pnpm@9 --quiet
+  script:
+    - pnpm install --frozen-lockfile
+    - (cd api && pnpm exec prisma generate)
+    - (cd api && pnpm exec prisma db push)
+    - (cd api && pnpm exec prisma db seed)
+    - pnpm run test
+    - pnpm run lint
+    - pnpm run format-check
+
+# ── Gitleaks Secret Scan ──────────────────────────────────────────────────────
+# Equivalent to the gitleaks job in .github/workflows/security.yml
+gitleaks:
+  stage: security
+  image:
+    name: zricethezav/gitleaks:latest
+    entrypoint: [""]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'push'
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_PIPELINE_SOURCE == 'schedule'
+    - if: $CI_PIPELINE_SOURCE == 'web'
+  script:
+    - gitleaks detect --source . --exit-code 1
+
+# ── Trivy Vulnerability Scan ──────────────────────────────────────────────────
+trivy:
+  stage: security
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [""]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'push'
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+  script:
+    - trivy fs --exit-code 1 --severity CRITICAL,HIGH --ignore-unfixed .
+
+# ── Build ─────────────────────────────────────────────────────────────────────
+# Equivalent to .github/workflows/build-and-prod.yml
+# Runs on shared GitLab runners (no self-hosted runner, no prod container start).
+# Triggered automatically on push to main, or manually via:
+#   GitLab → CI/CD → Pipelines → Run pipeline
+build:
+  stage: build
+  image: node:24-slim
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == 'push'
+    - if: $CI_PIPELINE_SOURCE == 'web'
+  before_script:
+    - npm install -g pnpm@9 --quiet
+  script:
+    - pnpm install --frozen-lockfile
+    - (cd api && pnpm exec prisma generate)
+    - make build

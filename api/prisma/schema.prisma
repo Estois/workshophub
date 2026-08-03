@@ -1,0 +1,29 @@
+// This is the Prisma schema for WorkshopHub
+// Run `pnpm exec prisma db push` to apply changes
+// Run `pnpm exec prisma db seed` to populate with sample data
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model TrainingSession {
+  id           Int      @id @default(autoincrement())
+  title        String
+  description  String
+  date         DateTime
+  capacity     Int
+  registered   Int      @default(0)
+  location     String
+  deliveryMode String
+  status       String   @default("active")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("training_sessions")
+}

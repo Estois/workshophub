@@ -1,0 +1,29 @@
+# Gitleaks configuration for WorkshopHub
+# Docs: https://github.com/gitleaks/gitleaks
+
+title = "WorkshopHub Gitleaks Config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "workshophub-slack-webhook"
+description = "Slack Webhook URL"
+regex = '''hooks\.slack\.com/services/[A-Z0-9]+/[A-Z0-9]+/[a-zA-Z0-9]+'''
+severity = "CRITICAL"
+
+[[rules]]
+id = "workshophub-env-production"
+description = "Potential .env.production content"
+regex = '''APP_ENV=production'''
+severity = "HIGH"
+[rules.allowlist]
+paths = ['''\.env\.example''', '''README\.md''', '''CLAUDE\.md''', '''\.gitleaks\.toml''']
+
+[allowlist]
+paths = [
+  '''\.env\.example''',
+  '''node_modules''',
+  '''pnpm-lock\.yaml''',
+  '''dist/''',
+]

@@ -1,0 +1,17 @@
+{
+  "name": "workshophub",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter @workshophub/app dev\" \"pnpm --filter @workshophub/api dev\"",
+    "build": "pnpm --filter @workshophub/app build && pnpm --filter @workshophub/api build",
+    "test": "pnpm --filter @workshophub/api test",
+    "lint": "pnpm --filter @workshophub/app lint && pnpm --filter @workshophub/api lint",
+    "format-check": "pnpm --filter @workshophub/app format-check && pnpm --filter @workshophub/api format-check",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "husky": "^9.1.7"
+  }
+}

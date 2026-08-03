@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Pre-push hook: run tests, lint, format check, and security scan before pushing.
+# Install via: chmod +x hooks/pre-push && cp hooks/pre-push .git/hooks/pre-push
+# Or use Husky (configured in package.json).
+
+set -e
+
+echo "Running pre-push checks..."
+
+echo "▶ Tests"
+pnpm run test
+
+echo "▶ Lint"
+pnpm run lint
+
+echo "▶ Format check"
+pnpm run format-check
+
+echo "▶ Trivy security scan"
+if command -v trivy &>/dev/null; then
+  trivy fs . --severity HIGH,CRITICAL --exit-code 1 --quiet
+else
+  echo "  WARNING: trivy not found — skipping CVE scan. Run setup/install-prerequisites-mac.sh to install."
+fi
+
+echo "All pre-push checks passed."

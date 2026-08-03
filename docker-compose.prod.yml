@@ -1,0 +1,26 @@
+name: workshophub-prod
+
+services:
+  app:
+    build:
+      context: .
+      target: runner
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env.production
+    environment:
+      - NODE_ENV=production
+      - APP_PORT=8080
+      - DATABASE_URL=file:/app/api/database/workshophub.sqlite
+    volumes:
+      - db_data:/app/api/database
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  db_data:

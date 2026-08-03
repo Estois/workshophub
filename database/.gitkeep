@@ -1,0 +1,3 @@
+# This directory holds the SQLite database file at runtime.
+# The database file (workshophub.sqlite) is created by `make setup` and is gitignored.
+# Do not commit any .sqlite files.

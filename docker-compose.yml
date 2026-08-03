@@ -1,0 +1,22 @@
+name: workshophub-dev
+
+services:
+  api:
+    build:
+      context: .
+      target: builder
+    ports:
+      - "3001:3001"
+    environment:
+      - DATABASE_URL=file:../database/workshophub.sqlite
+      - APP_PORT=3001
+      - NODE_ENV=development
+    volumes:
+      - ./database:/app/database
+      - ./api/src:/app/api/src
+    command: ["pnpm", "--filter", "@workshophub/api", "dev"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
