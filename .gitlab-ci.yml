@@ -74,4 +74,4 @@ build:
   script:
     - pnpm install --frozen-lockfile
     - (cd api && pnpm exec prisma generate)
-    - make build
+    - pnpm run build

@@ -32,4 +32,4 @@ jobs:
         run: cd api && pnpm exec prisma generate
 
       - name: Build application
-        run: make build
+        run: pnpm run build
