@@ -1,6 +1,15 @@
 import { Router, IRouter, Request, Response } from 'express'
 import prisma from '../lib/prisma'
-import { getAllSessions, getSessionById } from '../services/trainingSessionService'
+import {
+  getAllSessions,
+  getSessionById,
+  registerForSession,
+} from '../services/trainingSessionService'
+
+interface RegisterBody {
+  name?: string
+  email?: string
+}
 
 const router: IRouter = Router()
 
@@ -49,5 +58,41 @@ router.get('/:id', async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Failed to fetch training session' })
   }
 })
+
+router.post(
+  '/:id/registrations',
+  async (req: Request<{ id: string }, unknown, RegisterBody>, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10)
+      if (isNaN(id)) {
+        res.status(400).json({ error: 'Invalid session ID' })
+        return
+      }
+
+      const { name, email } = req.body
+      if (typeof name !== 'string' || typeof email !== 'string' || !name.trim() || !email.trim()) {
+        res.status(400).json({ error: 'name and email are required' })
+        return
+      }
+
+      const result = await registerForSession(id, name, email)
+
+      if (result.status === 'not_found') {
+        res.status(404).json({ error: 'Training session not found' })
+        return
+      }
+
+      if (result.status === 'full') {
+        res.status(409).json({ error: 'Training session is full' })
+        return
+      }
+
+      res.status(201).json(result.registration)
+    } catch (error) {
+      console.error('Error registering for training session:', error)
+      res.status(500).json({ error: 'Failed to register for training session' })
+    }
+  }
+)
 
 export default router
