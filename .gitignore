@@ -51,3 +51,5 @@ coverage/
 # Temp
 tmp/
 temp/
+.claude/settings.local.json
+.claude/HANDOFF*.md
