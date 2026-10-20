@@ -5,6 +5,7 @@ const prisma = new PrismaClient()
 async function main() {
   console.log('Seeding training sessions...')
 
+  await prisma.registration.deleteMany()
   await prisma.trainingSession.deleteMany()
 
   await prisma.trainingSession.createMany({

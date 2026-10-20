@@ -99,7 +99,82 @@
   color: var(--color-text);
 }
 
-.spots-left {
-  color: #16a34a;
+.capacity-bar {
+  width: 100%;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--color-border);
+  overflow: hidden;
+}
+
+.capacity-bar__fill {
+  height: 100%;
+  background: #16a34a;
+  border-radius: 9999px;
+  transition: width 0.2s ease;
+}
+
+.capacity-bar__fill--full {
+  background: #dc2626;
+}
+
+.session-card__register {
+  margin-top: 0.5rem;
+}
+
+.register-button {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  border-radius: 6px;
+  background: #1d4ed8;
+  color: #fff;
   font-weight: 500;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.register-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.register-button--cancel {
+  background: var(--color-border);
+  color: var(--color-text);
+}
+
+.register-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.register-form input {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.register-form__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.register-form__actions .register-button {
+  width: auto;
+  flex: 1;
+}
+
+.register-error {
+  color: #991b1b;
+  font-size: 0.82rem;
+  margin: 0;
+}
+
+.register-confirmation {
+  color: #065f46;
+  font-size: 0.85rem;
+  margin: 0;
 }
