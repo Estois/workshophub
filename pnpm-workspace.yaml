@@ -2,6 +2,9 @@ packages:
   - 'app'
   - 'api'
 
+overrides:
+  proxy-addr: '2.0.8'
+
 allowBuilds:
   '@prisma/client': true
   '@prisma/engines': true
