@@ -33,6 +33,8 @@ function deliveryModeLabel(mode: string): string {
 function TrainingSessionCard({ session }: Props) {
   const spotsLeft = session.capacity - session.registered
   const isFull = spotsLeft <= 0
+  const isAlmostFull = !isFull && spotsLeft <= 3
+  const percentFull = Math.min(100, (session.registered / session.capacity) * 100)
 
   return (
     <article className={`session-card ${isFull ? 'session-card--full' : ''}`}>
@@ -41,6 +43,9 @@ function TrainingSessionCard({ session }: Props) {
           {deliveryModeLabel(session.deliveryMode)}
         </span>
         {isFull && <span className="session-badge session-badge--full">Full</span>}
+        {isAlmostFull && (
+          <span className="session-badge session-badge--full">Only {spotsLeft} spots left!</span>
+        )}
       </div>
 
       <h3 className="session-card__title">{session.title}</h3>
@@ -70,6 +75,18 @@ function TrainingSessionCard({ session }: Props) {
               </span>
             )}
           </span>
+        </div>
+        <div
+          className="capacity-bar"
+          role="progressbar"
+          aria-valuenow={session.registered}
+          aria-valuemin={0}
+          aria-valuemax={session.capacity}
+        >
+          <div
+            className={`capacity-bar__fill ${isFull ? 'capacity-bar__fill--full' : isAlmostFull ? 'capacity-bar__fill--almost-full' : ''}`}
+            style={{ width: `${percentFull}%` }}
+          />
         </div>
       </div>
     </article>
