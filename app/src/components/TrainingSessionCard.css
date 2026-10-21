@@ -108,6 +108,57 @@
   font-weight: 500;
 }
 
+.session-card__register-button {
+  align-self: flex-start;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  background: var(--color-primary, #1d4ed8);
+  color: #fff;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.session-card__registration-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.session-card__registration-form input {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.session-card__registration-error {
+  color: #991b1b;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.session-card__registration-form-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.session-card__back-button {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.session-card__registration-message {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-text);
+  margin: 0;
+}
+
 .capacity-bar {
   position: relative;
   flex: 1;

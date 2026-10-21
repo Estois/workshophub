@@ -1,4 +1,5 @@
-import type { TrainingSession } from '../types'
+import { useState } from 'react'
+import type { TrainingSession, Registration } from '../types'
 import './TrainingSessionCard.css'
 
 interface Props {
@@ -36,6 +37,35 @@ function TrainingSessionCard({ session }: Props) {
   const isAlmostFull = !isFull && spotsLeft <= 3
   const percentFull = Math.min(100, (session.registered / session.capacity) * 100)
 
+  const [showForm, setShowForm] = useState(false)
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [result, setResult] = useState<Registration | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  function handleBack() {
+    setShowForm(false)
+    setError(null)
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+
+    const response = await fetch(`/api/training-sessions/${session.id}/registrations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email }),
+    })
+    const body = await response.json()
+
+    if (response.status === 201 || response.status === 202) {
+      setResult(body as Registration)
+    } else {
+      setError(body.error ?? 'Registration failed')
+    }
+  }
+
   return (
     <article className={`session-card ${isFull ? 'session-card--full' : ''}`}>
       <div className="session-card__header">
@@ -45,6 +75,11 @@ function TrainingSessionCard({ session }: Props) {
         {isFull && <span className="session-badge session-badge--full">Full</span>}
         {isAlmostFull && (
           <span className="session-badge session-badge--full">Only {spotsLeft} spots left!</span>
+        )}
+        {session.waitlistCount > 0 && (
+          <span className="session-badge session-badge--full">
+            {session.waitlistCount} on waitlist
+          </span>
         )}
       </div>
 
@@ -80,6 +115,42 @@ function TrainingSessionCard({ session }: Props) {
           </div>
         </div>
       </div>
+
+      {result ? (
+        <p className="session-card__registration-message">
+          {result.status === 'confirmed'
+            ? "You're registered!"
+            : `You're on the waitlist, position ${result.position}`}
+        </p>
+      ) : showForm ? (
+        <form className="session-card__registration-form" onSubmit={handleSubmit}>
+          <input
+            type="text"
+            placeholder="Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          {error && <p className="session-card__registration-error">{error}</p>}
+          <div className="session-card__registration-form-actions">
+            <button type="button" className="session-card__back-button" onClick={handleBack}>
+              Back
+            </button>
+            <button type="submit">{isFull ? 'Join Waitlist' : 'Register'}</button>
+          </div>
+        </form>
+      ) : (
+        <button className="session-card__register-button" onClick={() => setShowForm(true)}>
+          {isFull ? 'Join Waitlist' : 'Register'}
+        </button>
+      )}
     </article>
   )
 }

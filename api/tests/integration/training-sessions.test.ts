@@ -49,3 +49,68 @@ describe('GET /api/training-sessions/:id', () => {
     expect(response.status).toBe(400)
   })
 })
+
+describe('POST /api/training-sessions/:id/registrations', () => {
+  it('returns 201 and increments registered when the session has space', async () => {
+    const allResponse = await request(app).get('/api/training-sessions')
+    const session = allResponse.body.find(
+      (s: { capacity: number; registered: number }) => s.registered < s.capacity
+    )
+    expect(session).toBeDefined()
+
+    const response = await request(app)
+      .post(`/api/training-sessions/${session.id}/registrations`)
+      .send({ name: 'Alice', email: 'alice@example.com' })
+
+    expect(response.status).toBe(201)
+    expect(response.body.status).toBe('confirmed')
+
+    const updated = await request(app).get(`/api/training-sessions/${session.id}`)
+    expect(updated.body.registered).toBe(session.registered + 1)
+  })
+
+  it('returns 400 when name or email is missing', async () => {
+    const allResponse = await request(app).get('/api/training-sessions')
+    const sessionId = allResponse.body[0].id
+
+    const response = await request(app)
+      .post(`/api/training-sessions/${sessionId}/registrations`)
+      .send({ name: 'Alice' })
+
+    expect(response.status).toBe(400)
+    expect(response.body.error).toBeDefined()
+  })
+
+  it('returns 404 when the session does not exist', async () => {
+    const response = await request(app)
+      .post('/api/training-sessions/999999/registrations')
+      .send({ name: 'Alice', email: 'alice@example.com' })
+
+    expect(response.status).toBe(404)
+    expect(response.body.error).toBeDefined()
+  })
+
+  it('returns 202 with waitlist position when the session is full', async () => {
+    const allResponse = await request(app).get('/api/training-sessions')
+    const session = allResponse.body.find(
+      (s: { capacity: number; registered: number }) => s.registered < s.capacity
+    )
+    expect(session).toBeDefined()
+
+    const spotsLeft = session.capacity - session.registered
+    for (let i = 0; i < spotsLeft; i++) {
+      const fillResponse = await request(app)
+        .post(`/api/training-sessions/${session.id}/registrations`)
+        .send({ name: `Filler ${i}`, email: `filler${i}@example.com` })
+      expect(fillResponse.status).toBe(201)
+    }
+
+    const waitlistResponse = await request(app)
+      .post(`/api/training-sessions/${session.id}/registrations`)
+      .send({ name: 'Waitlisted Employee', email: 'waitlisted@example.com' })
+
+    expect(waitlistResponse.status).toBe(202)
+    expect(waitlistResponse.body.status).toBe('waitlisted')
+    expect(waitlistResponse.body.position).toBe(1)
+  })
+})
