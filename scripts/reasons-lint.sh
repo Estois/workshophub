@@ -11,8 +11,15 @@ REQUIRED_HEADINGS=(
   "## Safeguards"
 )
 
-if [ ! -d spdd/prompt ]; then
+branch=$(git rev-parse --abbrev-ref HEAD)
+
+if [ "$branch" = "main" ] || echo "$branch" | grep -iqE '^(chore|harness)-'; then
   exit 0
+fi
+
+if [ ! -d spdd/prompt ]; then
+  echo "spdd/prompt/ missing: REASONS canvas is required for this branch"
+  exit 1
 fi
 
 shopt -s nullglob
@@ -20,7 +27,8 @@ files=(spdd/prompt/*.md)
 shopt -u nullglob
 
 if [ ${#files[@]} -eq 0 ]; then
-  exit 0
+  echo "spdd/prompt/ has no canvas files: REASONS canvas is required for this branch"
+  exit 1
 fi
 
 status=0
