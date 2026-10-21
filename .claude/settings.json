@@ -1,5 +1,29 @@
 {
   "enabledPlugins": {
-    "slack@claude-plugins-official": true
+    "slack@claude-plugins-official": false
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'FILE=$(jq -r \".tool_input.file_path // empty\"); if [[ -n \"$FILE\" ]]; then case \"$FILE\" in */app/*) BIN=app/node_modules/.bin/prettier ;; */api/*) BIN=api/node_modules/.bin/prettier ;; *) BIN=\"\" ;; esac; [[ -x \"$BIN\" ]] && \"$BIN\" --write \"$FILE\" >/dev/null 2>&1; fi; exit 0'"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'CMD=$(jq -r \".tool_input.command // empty\"); if [[ \"$CMD\" =~ git[[:space:]]+push ]] && [[ \"$CMD\" =~ (^|[[:space:]:+])main([[:space:]]|$) ]]; then echo \"Direct push to main is blocked. Push a branch and open a PR.\" >&2; exit 2; fi; exit 0'"
+          }
+        ]
+      }
+    ]
   }
 }
