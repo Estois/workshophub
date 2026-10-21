@@ -71,6 +71,11 @@ function TrainingSessionCard({ session }: Props) {
         {isAlmostFull && (
           <span className="session-badge session-badge--full">Only {spotsLeft} spots left!</span>
         )}
+        {session.waitlistCount > 0 && (
+          <span className="session-badge session-badge--full">
+            {session.waitlistCount} on waitlist
+          </span>
+        )}
       </div>
 
       <h3 className="session-card__title">{session.title}</h3>

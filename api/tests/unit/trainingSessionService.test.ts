@@ -40,22 +40,30 @@ const mockSession = {
   status: 'open',
 }
 
+const mockSessionWithCount = { ...mockSession, _count: { registrations: 0 } }
+
 afterEach(() => {
   jest.clearAllMocks()
 })
 
 describe('getAllSessions', () => {
-  it('returns sessions ordered by date', async () => {
+  it('returns sessions ordered by date with waitlistCount', async () => {
     const sessions = [
-      mockSession,
-      { ...mockSession, id: 2, date: new Date('2026-07-02T09:00:00Z') },
+      mockSessionWithCount,
+      { ...mockSessionWithCount, id: 2, date: new Date('2026-07-02T09:00:00Z') },
     ]
     mockFindMany.mockResolvedValue(sessions)
 
     const result = await getAllSessions()
 
-    expect(result).toEqual(sessions)
-    expect(mockFindMany).toHaveBeenCalledWith({ orderBy: { date: 'asc' } })
+    expect(result).toEqual([
+      { ...mockSession, waitlistCount: 0 },
+      { ...mockSession, id: 2, date: new Date('2026-07-02T09:00:00Z'), waitlistCount: 0 },
+    ])
+    expect(mockFindMany).toHaveBeenCalledWith({
+      orderBy: { date: 'asc' },
+      include: { _count: { select: { registrations: { where: { status: 'waitlisted' } } } } },
+    })
   })
 
   it('returns an empty array when no sessions exist', async () => {
@@ -68,13 +76,16 @@ describe('getAllSessions', () => {
 })
 
 describe('getSessionById', () => {
-  it('returns the matching session', async () => {
-    mockFindUnique.mockResolvedValue(mockSession)
+  it('returns the matching session with waitlistCount', async () => {
+    mockFindUnique.mockResolvedValue({ ...mockSessionWithCount, _count: { registrations: 2 } })
 
     const result = await getSessionById(1)
 
-    expect(result).toEqual(mockSession)
-    expect(mockFindUnique).toHaveBeenCalledWith({ where: { id: 1 } })
+    expect(result).toEqual({ ...mockSession, waitlistCount: 2 })
+    expect(mockFindUnique).toHaveBeenCalledWith({
+      where: { id: 1 },
+      include: { _count: { select: { registrations: { where: { status: 'waitlisted' } } } } },
+    })
   })
 
   it('returns null when session does not exist', async () => {

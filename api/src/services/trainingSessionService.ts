@@ -2,15 +2,26 @@ import { Registration } from '@prisma/client'
 import prisma from '../lib/prisma'
 
 export async function getAllSessions() {
-  return prisma.trainingSession.findMany({
+  const sessions = await prisma.trainingSession.findMany({
     orderBy: { date: 'asc' },
+    include: { _count: { select: { registrations: { where: { status: 'waitlisted' } } } } },
   })
+  return sessions.map(({ _count, ...session }) => ({
+    ...session,
+    waitlistCount: _count.registrations,
+  }))
 }
 
 export async function getSessionById(id: number) {
-  return prisma.trainingSession.findUnique({
+  const session = await prisma.trainingSession.findUnique({
     where: { id },
+    include: { _count: { select: { registrations: { where: { status: 'waitlisted' } } } } },
   })
+  if (!session) {
+    return null
+  }
+  const { _count, ...rest } = session
+  return { ...rest, waitlistCount: _count.registrations }
 }
 
 export type RegistrationResult =
