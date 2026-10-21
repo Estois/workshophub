@@ -4,6 +4,7 @@ import {
   getAllSessions,
   getSessionById,
   registerForSession,
+  cancelRegistration,
 } from '../services/trainingSessionService'
 
 const router: IRouter = Router()
@@ -86,6 +87,39 @@ router.post('/:id/registrations', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error registering for training session:', error)
     res.status(500).json({ error: 'Failed to register for training session' })
+  }
+})
+
+router.delete('/:id/registrations/:registrationId', async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10)
+    if (isNaN(id)) {
+      res.status(400).json({ error: 'Invalid session ID' })
+      return
+    }
+
+    const registrationId = parseInt(req.params.registrationId, 10)
+    if (isNaN(registrationId)) {
+      res.status(400).json({ error: 'Invalid registration ID' })
+      return
+    }
+
+    const result = await cancelRegistration(id, registrationId)
+
+    if (result.status === 'not_found') {
+      res.status(404).json({ error: 'Registration not found' })
+      return
+    }
+
+    if (result.status === 'already_cancelled') {
+      res.status(409).json({ error: 'Registration already cancelled' })
+      return
+    }
+
+    res.status(200).json({ status: 'cancelled' })
+  } catch (error) {
+    console.error('Error cancelling registration:', error)
+    res.status(500).json({ error: 'Failed to cancel registration' })
   }
 })
 
