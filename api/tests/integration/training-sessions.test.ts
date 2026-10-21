@@ -114,3 +114,132 @@ describe('POST /api/training-sessions/:id/registrations', () => {
     expect(waitlistResponse.body.position).toBe(1)
   })
 })
+
+describe('DELETE /api/training-sessions/:id/registrations/:registrationId', () => {
+  it('returns 200 and decrements registered when cancelling a confirmed registration', async () => {
+    const allResponse = await request(app).get('/api/training-sessions')
+    const session = allResponse.body.find(
+      (s: { capacity: number; registered: number }) => s.registered < s.capacity
+    )
+    expect(session).toBeDefined()
+
+    const registerResponse = await request(app)
+      .post(`/api/training-sessions/${session.id}/registrations`)
+      .send({ name: 'Cancel Me', email: 'cancelme@example.com' })
+    expect(registerResponse.status).toBe(201)
+
+    const response = await request(app).delete(
+      `/api/training-sessions/${session.id}/registrations/${registerResponse.body.id}`
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({ status: 'cancelled' })
+
+    const updated = await request(app).get(`/api/training-sessions/${session.id}`)
+    expect(updated.body.registered).toBe(session.registered)
+  })
+
+  it('returns 409 when cancelling an already cancelled registration', async () => {
+    const allResponse = await request(app).get('/api/training-sessions')
+    const session = allResponse.body.find(
+      (s: { capacity: number; registered: number }) => s.registered < s.capacity
+    )
+    expect(session).toBeDefined()
+
+    const registerResponse = await request(app)
+      .post(`/api/training-sessions/${session.id}/registrations`)
+      .send({ name: 'Double Cancel', email: 'doublecancel@example.com' })
+
+    await request(app).delete(
+      `/api/training-sessions/${session.id}/registrations/${registerResponse.body.id}`
+    )
+    const response = await request(app).delete(
+      `/api/training-sessions/${session.id}/registrations/${registerResponse.body.id}`
+    )
+
+    expect(response.status).toBe(409)
+    expect(response.body.error).toBeDefined()
+  })
+
+  it('returns 404 when the registration does not exist', async () => {
+    const allResponse = await request(app).get('/api/training-sessions')
+    const sessionId = allResponse.body[0].id
+
+    const response = await request(app).delete(
+      `/api/training-sessions/${sessionId}/registrations/999999`
+    )
+
+    expect(response.status).toBe(404)
+    expect(response.body.error).toBeDefined()
+  })
+
+  it('returns 404 when the registration belongs to a different session', async () => {
+    const allResponse = await request(app).get('/api/training-sessions')
+    const sessions = allResponse.body.filter(
+      (s: { capacity: number; registered: number }) => s.registered < s.capacity
+    )
+    expect(sessions.length).toBeGreaterThanOrEqual(2)
+
+    const registerResponse = await request(app)
+      .post(`/api/training-sessions/${sessions[0].id}/registrations`)
+      .send({ name: 'Wrong Session', email: 'wrongsession@example.com' })
+
+    const response = await request(app).delete(
+      `/api/training-sessions/${sessions[1].id}/registrations/${registerResponse.body.id}`
+    )
+
+    expect(response.status).toBe(404)
+    expect(response.body.error).toBeDefined()
+  })
+
+  it('returns 400 for an invalid session ID', async () => {
+    const response = await request(app).delete(
+      '/api/training-sessions/not-a-number/registrations/1'
+    )
+
+    expect(response.status).toBe(400)
+  })
+
+  it('returns 400 for an invalid registration ID', async () => {
+    const allResponse = await request(app).get('/api/training-sessions')
+    const sessionId = allResponse.body[0].id
+
+    const response = await request(app).delete(
+      `/api/training-sessions/${sessionId}/registrations/not-a-number`
+    )
+
+    expect(response.status).toBe(400)
+  })
+
+  it('cancels a waitlisted registration without decrementing registered', async () => {
+    const allResponse = await request(app).get('/api/training-sessions')
+    const session = allResponse.body.find(
+      (s: { capacity: number; registered: number }) => s.registered < s.capacity
+    )
+    expect(session).toBeDefined()
+
+    const spotsLeft = session.capacity - session.registered
+    for (let i = 0; i < spotsLeft; i++) {
+      await request(app)
+        .post(`/api/training-sessions/${session.id}/registrations`)
+        .send({ name: `Filler ${i}`, email: `filler${i}@example.com` })
+    }
+
+    const waitlistResponse = await request(app)
+      .post(`/api/training-sessions/${session.id}/registrations`)
+      .send({ name: 'Waitlist Cancel', email: 'waitlistcancel@example.com' })
+    expect(waitlistResponse.status).toBe(202)
+
+    const beforeCancel = await request(app).get(`/api/training-sessions/${session.id}`)
+
+    const response = await request(app).delete(
+      `/api/training-sessions/${session.id}/registrations/${waitlistResponse.body.id}`
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({ status: 'cancelled' })
+
+    const afterCancel = await request(app).get(`/api/training-sessions/${session.id}`)
+    expect(afterCancel.body.registered).toBe(beforeCancel.body.registered)
+  })
+})

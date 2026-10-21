@@ -10,8 +10,8 @@ function TrainingSessionsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    fetch(`${API_BASE}/api/training-sessions`)
+  function fetchSessions() {
+    return fetch(`${API_BASE}/api/training-sessions`)
       .then((res) => {
         if (!res.ok) throw new Error(`Server error: ${res.status}`)
         return res.json()
@@ -24,6 +24,10 @@ function TrainingSessionsPage() {
         setError(err.message)
         setLoading(false)
       })
+  }
+
+  useEffect(() => {
+    fetchSessions()
   }, [])
 
   if (loading) {
@@ -51,7 +55,7 @@ function TrainingSessionsPage() {
       </p>
       <div className="sessions-grid">
         {sessions.map((session) => (
-          <TrainingSessionCard key={session.id} session={session} />
+          <TrainingSessionCard key={session.id} session={session} onCancelled={fetchSessions} />
         ))}
       </div>
     </section>

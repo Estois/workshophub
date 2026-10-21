@@ -2,6 +2,7 @@ import {
   getAllSessions,
   getSessionById,
   registerForSession,
+  cancelRegistration,
 } from '../../src/services/trainingSessionService'
 import prisma from '../../src/lib/prisma'
 
@@ -12,10 +13,13 @@ jest.mock('../../src/lib/prisma', () => ({
       findMany: jest.fn(),
       findUnique: jest.fn(),
       updateMany: jest.fn(),
+      update: jest.fn(),
     },
     registration: {
       create: jest.fn(),
       count: jest.fn(),
+      findUnique: jest.fn(),
+      updateMany: jest.fn(),
     },
     $transaction: jest.fn(),
   },
@@ -24,8 +28,11 @@ jest.mock('../../src/lib/prisma', () => ({
 const mockFindMany = prisma.trainingSession.findMany as jest.Mock
 const mockFindUnique = prisma.trainingSession.findUnique as jest.Mock
 const mockUpdateMany = prisma.trainingSession.updateMany as jest.Mock
+const mockSessionUpdate = prisma.trainingSession.update as jest.Mock
 const mockRegistrationCreate = prisma.registration.create as jest.Mock
 const mockRegistrationCount = prisma.registration.count as jest.Mock
+const mockRegistrationFindUnique = prisma.registration.findUnique as jest.Mock
+const mockRegistrationUpdateMany = prisma.registration.updateMany as jest.Mock
 const mockTransaction = prisma.$transaction as jest.Mock
 
 const mockSession = {
@@ -164,5 +171,113 @@ describe('registerForSession', () => {
     expect(mockRegistrationCreate).toHaveBeenCalledWith({
       data: { name: 'Bob', email: 'bob@example.com', status: 'waitlisted', trainingSessionId: 1 },
     })
+  })
+})
+
+describe('cancelRegistration', () => {
+  beforeEach(() => {
+    mockTransaction.mockImplementation((callback: (tx: typeof prisma) => unknown) =>
+      callback(prisma)
+    )
+  })
+
+  it('returns not_found when the registration does not exist', async () => {
+    mockRegistrationFindUnique.mockResolvedValue(null)
+
+    const result = await cancelRegistration(1, 999)
+
+    expect(result).toEqual({ status: 'not_found' })
+  })
+
+  it('returns not_found when the registration belongs to a different session', async () => {
+    mockRegistrationFindUnique.mockResolvedValue({
+      id: 1,
+      status: 'confirmed',
+      trainingSessionId: 2,
+    })
+
+    const result = await cancelRegistration(1, 1)
+
+    expect(result).toEqual({ status: 'not_found' })
+  })
+
+  it('returns already_cancelled when the registration is already cancelled', async () => {
+    mockRegistrationFindUnique.mockResolvedValue({
+      id: 1,
+      status: 'cancelled',
+      trainingSessionId: 1,
+    })
+
+    const result = await cancelRegistration(1, 1)
+
+    expect(result).toEqual({ status: 'already_cancelled' })
+    expect(mockRegistrationUpdateMany).not.toHaveBeenCalled()
+  })
+
+  it('cancels a confirmed registration, decrements registered, and triggers promotion', async () => {
+    mockRegistrationFindUnique.mockResolvedValue({
+      id: 1,
+      status: 'confirmed',
+      trainingSessionId: 1,
+    })
+    mockRegistrationUpdateMany.mockResolvedValue({ count: 1 })
+    mockSessionUpdate.mockResolvedValue({ id: 1 })
+
+    const result = await cancelRegistration(1, 1)
+
+    expect(result).toEqual({ status: 'cancelled' })
+    expect(mockRegistrationUpdateMany).toHaveBeenCalledWith({
+      where: { id: 1, status: 'confirmed' },
+      data: { status: 'cancelled' },
+    })
+    expect(mockSessionUpdate).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: { registered: { decrement: 1 } },
+    })
+  })
+
+  it('returns already_cancelled when a concurrent request already cancelled the confirmed registration', async () => {
+    mockRegistrationFindUnique.mockResolvedValue({
+      id: 1,
+      status: 'confirmed',
+      trainingSessionId: 1,
+    })
+    mockRegistrationUpdateMany.mockResolvedValue({ count: 0 })
+
+    const result = await cancelRegistration(1, 1)
+
+    expect(result).toEqual({ status: 'already_cancelled' })
+    expect(mockSessionUpdate).not.toHaveBeenCalled()
+  })
+
+  it('cancels a waitlisted registration without decrementing registered', async () => {
+    mockRegistrationFindUnique.mockResolvedValue({
+      id: 2,
+      status: 'waitlisted',
+      trainingSessionId: 1,
+    })
+    mockRegistrationUpdateMany.mockResolvedValue({ count: 1 })
+
+    const result = await cancelRegistration(1, 2)
+
+    expect(result).toEqual({ status: 'cancelled' })
+    expect(mockRegistrationUpdateMany).toHaveBeenCalledWith({
+      where: { id: 2, status: 'waitlisted' },
+      data: { status: 'cancelled' },
+    })
+    expect(mockSessionUpdate).not.toHaveBeenCalled()
+  })
+
+  it('returns already_cancelled when a concurrent request already cancelled the waitlisted registration', async () => {
+    mockRegistrationFindUnique.mockResolvedValue({
+      id: 2,
+      status: 'waitlisted',
+      trainingSessionId: 1,
+    })
+    mockRegistrationUpdateMany.mockResolvedValue({ count: 0 })
+
+    const result = await cancelRegistration(1, 2)
+
+    expect(result).toEqual({ status: 'already_cancelled' })
   })
 })

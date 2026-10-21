@@ -4,6 +4,7 @@ import './TrainingSessionCard.css'
 
 interface Props {
   session: TrainingSession
+  onCancelled: () => void
 }
 
 function formatDate(dateStr: string): string {
@@ -31,7 +32,7 @@ function deliveryModeLabel(mode: string): string {
   return labels[mode] ?? mode
 }
 
-function TrainingSessionCard({ session }: Props) {
+function TrainingSessionCard({ session, onCancelled }: Props) {
   const spotsLeft = session.capacity - session.registered
   const isFull = spotsLeft <= 0
   const isAlmostFull = !isFull && spotsLeft <= 3
@@ -42,6 +43,8 @@ function TrainingSessionCard({ session }: Props) {
   const [email, setEmail] = useState('')
   const [result, setResult] = useState<Registration | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [cancelled, setCancelled] = useState(false)
+  const [cancelError, setCancelError] = useState<string | null>(null)
 
   function handleBack() {
     setShowForm(false)
@@ -63,6 +66,31 @@ function TrainingSessionCard({ session }: Props) {
       setResult(body as Registration)
     } else {
       setError(body.error ?? 'Registration failed')
+    }
+  }
+
+  async function handleCancel() {
+    if (!result || cancelled) return
+
+    const confirmed = window.confirm(
+      `Are you sure you want to cancel your registration for ${session.title}?`
+    )
+    if (!confirmed) return
+
+    const response = await fetch(
+      `/api/training-sessions/${session.id}/registrations/${result.id}`,
+      {
+        method: 'DELETE',
+      }
+    )
+
+    if (response.status === 200) {
+      setCancelled(true)
+      setCancelError(null)
+      onCancelled()
+    } else {
+      const body = await response.json()
+      setCancelError(body.error ?? 'Cancellation failed')
     }
   }
 
@@ -117,11 +145,21 @@ function TrainingSessionCard({ session }: Props) {
       </div>
 
       {result ? (
-        <p className="session-card__registration-message">
-          {result.status === 'confirmed'
-            ? "You're registered!"
-            : `You're on the waitlist, position ${result.position}`}
-        </p>
+        <>
+          <p className="session-card__registration-message">
+            {cancelled
+              ? 'Your registration has been cancelled'
+              : result.status === 'confirmed'
+                ? "You're registered!"
+                : `You're on the waitlist, position ${result.position}`}
+          </p>
+          {!cancelled && (
+            <button className="session-card__cancel-button" onClick={handleCancel}>
+              Cancel Registration
+            </button>
+          )}
+          {cancelError && <p className="session-card__registration-error">{cancelError}</p>}
+        </>
       ) : showForm ? (
         <form className="session-card__registration-form" onSubmit={handleSubmit}>
           <input
