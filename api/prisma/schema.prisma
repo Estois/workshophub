@@ -25,5 +25,21 @@ model TrainingSession {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  registrations Registration[]
+
   @@map("training_sessions")
+}
+
+model Registration {
+  id                Int      @id @default(autoincrement())
+  name              String
+  email             String
+  status            String
+  trainingSessionId Int
+  createdAt         DateTime @default(now())
+
+  trainingSession TrainingSession @relation(fields: [trainingSessionId], references: [id])
+
+  @@index([trainingSessionId, status, createdAt])
+  @@map("registrations")
 }
