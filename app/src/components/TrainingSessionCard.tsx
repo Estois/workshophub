@@ -64,29 +64,20 @@ function TrainingSessionCard({ session }: Props) {
           <span className="meta-label">Location</span>
           <span className="meta-value">{session.location}</span>
         </div>
-        <div className="meta-item">
+        <div className="meta-item meta-item--capacity">
           <span className="meta-label">Capacity</span>
-          <span className="meta-value">
-            {session.registered} / {session.capacity} registered
-            {!isFull && (
-              <span className="spots-left">
-                {' '}
-                ({spotsLeft} spot{spotsLeft !== 1 ? 's' : ''} left)
-              </span>
-            )}
-          </span>
-        </div>
-        <div
-          className="capacity-bar"
-          role="progressbar"
-          aria-valuenow={session.registered}
-          aria-valuemin={0}
-          aria-valuemax={session.capacity}
-        >
           <div
-            className={`capacity-bar__fill ${isFull ? 'capacity-bar__fill--full' : isAlmostFull ? 'capacity-bar__fill--almost-full' : ''}`}
-            style={{ width: `${percentFull}%` }}
-          />
+            className="capacity-bar"
+            role="progressbar"
+            aria-valuenow={session.registered}
+            aria-valuemin={0}
+            aria-valuemax={session.capacity}
+          >
+            <div className="capacity-bar__fill" style={{ width: `${percentFull}%` }} />
+            <span className="capacity-bar__label">
+              {session.registered}/{session.capacity}
+            </span>
+          </div>
         </div>
       </div>
     </article>
