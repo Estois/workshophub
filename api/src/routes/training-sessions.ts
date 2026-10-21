@@ -116,7 +116,9 @@ router.delete('/:id/registrations/:registrationId', async (req: Request, res: Re
       return
     }
 
-    res.status(200).json({ status: 'cancelled' })
+    res
+      .status(200)
+      .json({ status: 'cancelled', promotedRegistrationId: result.promotedRegistrationId })
   } catch (error) {
     console.error('Error cancelling registration:', error)
     res.status(500).json({ error: 'Failed to cancel registration' })
