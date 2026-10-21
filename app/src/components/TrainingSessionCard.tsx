@@ -43,6 +43,11 @@ function TrainingSessionCard({ session }: Props) {
   const [result, setResult] = useState<Registration | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  function handleBack() {
+    setShowForm(false)
+    setError(null)
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
@@ -134,7 +139,12 @@ function TrainingSessionCard({ session }: Props) {
             required
           />
           {error && <p className="session-card__registration-error">{error}</p>}
-          <button type="submit">{isFull ? 'Join Waitlist' : 'Register'}</button>
+          <div className="session-card__registration-form-actions">
+            <button type="button" className="session-card__back-button" onClick={handleBack}>
+              Back
+            </button>
+            <button type="submit">{isFull ? 'Join Waitlist' : 'Register'}</button>
+          </div>
         </form>
       ) : (
         <button className="session-card__register-button" onClick={() => setShowForm(true)}>

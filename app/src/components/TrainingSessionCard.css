@@ -137,6 +137,21 @@
   margin: 0;
 }
 
+.session-card__registration-form-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.session-card__back-button {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text);
+  font-weight: 500;
+  cursor: pointer;
+}
+
 .session-card__registration-message {
   font-size: 0.9rem;
   font-weight: 500;
