@@ -4,6 +4,7 @@ import {
   registerForSession,
   cancelRegistration,
   promoteFromWaitlist,
+  getRegistrationsForSession,
 } from '../../src/services/trainingSessionService'
 import prisma from '../../src/lib/prisma'
 
@@ -19,6 +20,7 @@ jest.mock('../../src/lib/prisma', () => ({
     registration: {
       create: jest.fn(),
       count: jest.fn(),
+      findMany: jest.fn(),
       findUnique: jest.fn(),
       findFirst: jest.fn(),
       updateMany: jest.fn(),
@@ -33,6 +35,7 @@ const mockUpdateMany = prisma.trainingSession.updateMany as jest.Mock
 const mockSessionUpdate = prisma.trainingSession.update as jest.Mock
 const mockRegistrationCreate = prisma.registration.create as jest.Mock
 const mockRegistrationCount = prisma.registration.count as jest.Mock
+const mockRegistrationFindMany = prisma.registration.findMany as jest.Mock
 const mockRegistrationFindUnique = prisma.registration.findUnique as jest.Mock
 const mockRegistrationFindFirst = prisma.registration.findFirst as jest.Mock
 const mockRegistrationUpdateMany = prisma.registration.updateMany as jest.Mock
@@ -362,6 +365,52 @@ describe('promoteFromWaitlist', () => {
     expect(mockSessionUpdate).toHaveBeenCalledWith({
       where: { id: 1 },
       data: { registered: { increment: 1 } },
+    })
+  })
+})
+
+describe('getRegistrationsForSession', () => {
+  it('returns not_found when the session does not exist', async () => {
+    mockFindUnique.mockResolvedValue(null)
+
+    const result = await getRegistrationsForSession(999)
+
+    expect(result).toEqual({ status: 'not_found' })
+    expect(mockRegistrationFindMany).not.toHaveBeenCalled()
+  })
+
+  it('returns empty confirmed and waitlisted arrays when there are no registrations', async () => {
+    mockFindUnique.mockResolvedValue(mockSession)
+    mockRegistrationFindMany.mockResolvedValue([])
+
+    const result = await getRegistrationsForSession(1)
+
+    expect(result).toEqual({ status: 'ok', confirmed: [], waitlisted: [] })
+  })
+
+  it('splits registrations into confirmed and waitlisted, excluding cancelled', async () => {
+    mockFindUnique.mockResolvedValue(mockSession)
+    mockRegistrationFindMany.mockResolvedValue([
+      {
+        id: 1,
+        name: 'Alice',
+        email: 'alice@example.com',
+        status: 'confirmed',
+        createdAt: new Date(),
+      },
+      { id: 2, name: 'Bob', email: 'bob@example.com', status: 'waitlisted', createdAt: new Date() },
+    ])
+
+    const result = await getRegistrationsForSession(1)
+
+    expect(result).toEqual({
+      status: 'ok',
+      confirmed: [expect.objectContaining({ id: 1, status: 'confirmed' })],
+      waitlisted: [expect.objectContaining({ id: 2, status: 'waitlisted' })],
+    })
+    expect(mockRegistrationFindMany).toHaveBeenCalledWith({
+      where: { trainingSessionId: 1, status: { not: 'cancelled' } },
+      orderBy: { createdAt: 'asc' },
     })
   })
 })

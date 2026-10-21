@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import type { TrainingSession, Registration } from '../types'
 import './TrainingSessionCard.css'
 
@@ -113,6 +114,10 @@ function TrainingSessionCard({ session, onCancelled }: Props) {
 
       <h3 className="session-card__title">{session.title}</h3>
       <p className="session-card__description">{session.description}</p>
+
+      <Link to={`/sessions/${session.id}`} className="session-card__view-registrations-link">
+        View Registrations
+      </Link>
 
       <div className="session-card__meta">
         <div className="meta-item">

@@ -66,6 +66,28 @@ export async function registerForSession(
   })
 }
 
+export type RegistrationsResult =
+  | { status: 'not_found' }
+  | { status: 'ok'; confirmed: Registration[]; waitlisted: Registration[] }
+
+export async function getRegistrationsForSession(sessionId: number): Promise<RegistrationsResult> {
+  const session = await prisma.trainingSession.findUnique({ where: { id: sessionId } })
+  if (!session) {
+    return { status: 'not_found' }
+  }
+
+  const registrations = await prisma.registration.findMany({
+    where: { trainingSessionId: sessionId, status: { not: 'cancelled' } },
+    orderBy: { createdAt: 'asc' },
+  })
+
+  return {
+    status: 'ok',
+    confirmed: registrations.filter((r) => r.status === 'confirmed'),
+    waitlisted: registrations.filter((r) => r.status === 'waitlisted'),
+  }
+}
+
 export type CancellationResult =
   | { status: 'not_found' }
   | { status: 'already_cancelled' }

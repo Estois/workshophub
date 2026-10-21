@@ -108,6 +108,12 @@
   font-weight: 500;
 }
 
+.session-card__view-registrations-link {
+  font-size: 0.85rem;
+  color: var(--color-primary, #1d4ed8);
+  align-self: flex-start;
+}
+
 .session-card__register-button {
   align-self: flex-start;
   padding: 0.5rem 1rem;

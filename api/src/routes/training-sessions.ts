@@ -5,6 +5,7 @@ import {
   getSessionById,
   registerForSession,
   cancelRegistration,
+  getRegistrationsForSession,
 } from '../services/trainingSessionService'
 
 const router: IRouter = Router()
@@ -52,6 +53,28 @@ router.get('/:id', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error fetching training session:', error)
     res.status(500).json({ error: 'Failed to fetch training session' })
+  }
+})
+
+router.get('/:id/registrations', async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10)
+    if (isNaN(id)) {
+      res.status(400).json({ error: 'Invalid session ID' })
+      return
+    }
+
+    const result = await getRegistrationsForSession(id)
+
+    if (result.status === 'not_found') {
+      res.status(404).json({ error: 'Training session not found' })
+      return
+    }
+
+    res.status(200).json({ confirmed: result.confirmed, waitlisted: result.waitlisted })
+  } catch (error) {
+    console.error('Error fetching registrations for training session:', error)
+    res.status(500).json({ error: 'Failed to fetch registrations for training session' })
   }
 })
 
