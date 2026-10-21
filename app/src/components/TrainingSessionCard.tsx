@@ -34,6 +34,8 @@ function deliveryModeLabel(mode: string): string {
 function TrainingSessionCard({ session }: Props) {
   const spotsLeft = session.capacity - session.registered
   const isFull = spotsLeft <= 0
+  const isAlmostFull = !isFull && spotsLeft <= 3
+  const percentFull = Math.min(100, (session.registered / session.capacity) * 100)
 
   const [showForm, setShowForm] = useState(false)
   const [name, setName] = useState('')
@@ -66,6 +68,9 @@ function TrainingSessionCard({ session }: Props) {
           {deliveryModeLabel(session.deliveryMode)}
         </span>
         {isFull && <span className="session-badge session-badge--full">Full</span>}
+        {isAlmostFull && (
+          <span className="session-badge session-badge--full">Only {spotsLeft} spots left!</span>
+        )}
       </div>
 
       <h3 className="session-card__title">{session.title}</h3>
@@ -84,17 +89,20 @@ function TrainingSessionCard({ session }: Props) {
           <span className="meta-label">Location</span>
           <span className="meta-value">{session.location}</span>
         </div>
-        <div className="meta-item">
+        <div className="meta-item meta-item--capacity">
           <span className="meta-label">Capacity</span>
-          <span className="meta-value">
-            {session.registered} / {session.capacity} registered
-            {!isFull && (
-              <span className="spots-left">
-                {' '}
-                ({spotsLeft} spot{spotsLeft !== 1 ? 's' : ''} left)
-              </span>
-            )}
-          </span>
+          <div
+            className="capacity-bar"
+            role="progressbar"
+            aria-valuenow={session.registered}
+            aria-valuemin={0}
+            aria-valuemax={session.capacity}
+          >
+            <div className="capacity-bar__fill" style={{ width: `${percentFull}%` }} />
+            <span className="capacity-bar__label">
+              {session.registered}/{session.capacity}
+            </span>
+          </div>
         </div>
       </div>
 

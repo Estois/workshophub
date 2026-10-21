@@ -99,6 +99,10 @@
   color: var(--color-text);
 }
 
+.meta-item--capacity {
+  align-items: center;
+}
+
 .spots-left {
   color: #16a34a;
   font-weight: 500;
@@ -138,4 +142,34 @@
   font-weight: 500;
   color: var(--color-text);
   margin: 0;
+}
+
+.capacity-bar {
+  position: relative;
+  flex: 1;
+  height: 18px;
+  border-radius: 9999px;
+  background: var(--color-border);
+  overflow: hidden;
+}
+
+.capacity-bar__fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: #1d4ed8;
+  transition: width 0.2s ease;
+}
+
+.capacity-bar__label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #fff;
+  text-shadow:
+    0 0 3px rgba(0, 0, 0, 0.75),
+    0 0 1px rgba(0, 0, 0, 0.9);
 }
