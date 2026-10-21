@@ -1,0 +1,2 @@
+bash scripts/reasons-lint.sh || exit 1
+bash scripts/branch-name-check.sh || exit 1
