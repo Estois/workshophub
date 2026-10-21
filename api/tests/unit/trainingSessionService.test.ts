@@ -3,6 +3,7 @@ import {
   getSessionById,
   registerForSession,
   cancelRegistration,
+  promoteFromWaitlist,
 } from '../../src/services/trainingSessionService'
 import prisma from '../../src/lib/prisma'
 
@@ -19,6 +20,7 @@ jest.mock('../../src/lib/prisma', () => ({
       create: jest.fn(),
       count: jest.fn(),
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       updateMany: jest.fn(),
     },
     $transaction: jest.fn(),
@@ -32,6 +34,7 @@ const mockSessionUpdate = prisma.trainingSession.update as jest.Mock
 const mockRegistrationCreate = prisma.registration.create as jest.Mock
 const mockRegistrationCount = prisma.registration.count as jest.Mock
 const mockRegistrationFindUnique = prisma.registration.findUnique as jest.Mock
+const mockRegistrationFindFirst = prisma.registration.findFirst as jest.Mock
 const mockRegistrationUpdateMany = prisma.registration.updateMany as jest.Mock
 const mockTransaction = prisma.$transaction as jest.Mock
 
@@ -214,7 +217,7 @@ describe('cancelRegistration', () => {
     expect(mockRegistrationUpdateMany).not.toHaveBeenCalled()
   })
 
-  it('cancels a confirmed registration, decrements registered, and triggers promotion', async () => {
+  it('cancels a confirmed registration, decrements registered, and finds no one to promote', async () => {
     mockRegistrationFindUnique.mockResolvedValue({
       id: 1,
       status: 'confirmed',
@@ -222,10 +225,11 @@ describe('cancelRegistration', () => {
     })
     mockRegistrationUpdateMany.mockResolvedValue({ count: 1 })
     mockSessionUpdate.mockResolvedValue({ id: 1 })
+    mockRegistrationFindFirst.mockResolvedValue(null)
 
     const result = await cancelRegistration(1, 1)
 
-    expect(result).toEqual({ status: 'cancelled' })
+    expect(result).toEqual({ status: 'cancelled', promotedRegistrationId: null })
     expect(mockRegistrationUpdateMany).toHaveBeenCalledWith({
       where: { id: 1, status: 'confirmed' },
       data: { status: 'cancelled' },
@@ -233,6 +237,35 @@ describe('cancelRegistration', () => {
     expect(mockSessionUpdate).toHaveBeenCalledWith({
       where: { id: 1 },
       data: { registered: { decrement: 1 } },
+    })
+  })
+
+  it('cancels a confirmed registration and promotes the oldest waitlisted employee', async () => {
+    mockRegistrationFindUnique.mockResolvedValue({
+      id: 1,
+      status: 'confirmed',
+      trainingSessionId: 1,
+    })
+    mockRegistrationUpdateMany
+      .mockResolvedValueOnce({ count: 1 }) // cancellation
+      .mockResolvedValueOnce({ count: 1 }) // promotion
+    mockSessionUpdate.mockResolvedValue({ id: 1 })
+    mockRegistrationFindFirst.mockResolvedValue({ id: 5, status: 'waitlisted' })
+
+    const result = await cancelRegistration(1, 1)
+
+    expect(result).toEqual({ status: 'cancelled', promotedRegistrationId: 5 })
+    expect(mockRegistrationUpdateMany).toHaveBeenNthCalledWith(2, {
+      where: { id: 5, status: 'waitlisted' },
+      data: { status: 'confirmed' },
+    })
+    expect(mockSessionUpdate).toHaveBeenNthCalledWith(1, {
+      where: { id: 1 },
+      data: { registered: { decrement: 1 } },
+    })
+    expect(mockSessionUpdate).toHaveBeenNthCalledWith(2, {
+      where: { id: 1 },
+      data: { registered: { increment: 1 } },
     })
   })
 
@@ -250,7 +283,7 @@ describe('cancelRegistration', () => {
     expect(mockSessionUpdate).not.toHaveBeenCalled()
   })
 
-  it('cancels a waitlisted registration without decrementing registered', async () => {
+  it('cancels a waitlisted registration without decrementing registered or promoting', async () => {
     mockRegistrationFindUnique.mockResolvedValue({
       id: 2,
       status: 'waitlisted',
@@ -260,12 +293,13 @@ describe('cancelRegistration', () => {
 
     const result = await cancelRegistration(1, 2)
 
-    expect(result).toEqual({ status: 'cancelled' })
+    expect(result).toEqual({ status: 'cancelled', promotedRegistrationId: null })
     expect(mockRegistrationUpdateMany).toHaveBeenCalledWith({
       where: { id: 2, status: 'waitlisted' },
       data: { status: 'cancelled' },
     })
     expect(mockSessionUpdate).not.toHaveBeenCalled()
+    expect(mockRegistrationFindFirst).not.toHaveBeenCalled()
   })
 
   it('returns already_cancelled when a concurrent request already cancelled the waitlisted registration', async () => {
@@ -279,5 +313,55 @@ describe('cancelRegistration', () => {
     const result = await cancelRegistration(1, 2)
 
     expect(result).toEqual({ status: 'already_cancelled' })
+  })
+})
+
+describe('promoteFromWaitlist', () => {
+  beforeEach(() => {
+    mockTransaction.mockImplementation((callback: (tx: typeof prisma) => unknown) =>
+      callback(prisma)
+    )
+  })
+
+  it('returns null when there is no one on the waitlist', async () => {
+    mockRegistrationFindFirst.mockResolvedValue(null)
+
+    const result = await promoteFromWaitlist(prisma, 1)
+
+    expect(result).toBeNull()
+    expect(mockRegistrationUpdateMany).not.toHaveBeenCalled()
+    expect(mockSessionUpdate).not.toHaveBeenCalled()
+  })
+
+  it('returns null without throwing when a concurrent transaction already promoted the candidate', async () => {
+    mockRegistrationFindFirst.mockResolvedValue({ id: 5, status: 'waitlisted' })
+    mockRegistrationUpdateMany.mockResolvedValue({ count: 0 })
+
+    const result = await promoteFromWaitlist(prisma, 1)
+
+    expect(result).toBeNull()
+    expect(mockSessionUpdate).not.toHaveBeenCalled()
+  })
+
+  it('promotes the oldest waitlisted registration and increments registered', async () => {
+    mockRegistrationFindFirst.mockResolvedValue({ id: 5, status: 'waitlisted' })
+    mockRegistrationUpdateMany.mockResolvedValue({ count: 1 })
+    mockSessionUpdate.mockResolvedValue({ id: 1 })
+
+    const result = await promoteFromWaitlist(prisma, 1)
+
+    expect(result).toBe(5)
+    expect(mockRegistrationFindFirst).toHaveBeenCalledWith({
+      where: { trainingSessionId: 1, status: 'waitlisted' },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    })
+    expect(mockRegistrationUpdateMany).toHaveBeenCalledWith({
+      where: { id: 5, status: 'waitlisted' },
+      data: { status: 'confirmed' },
+    })
+    expect(mockSessionUpdate).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: { registered: { increment: 1 } },
+    })
   })
 })

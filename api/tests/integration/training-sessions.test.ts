@@ -133,10 +133,50 @@ describe('DELETE /api/training-sessions/:id/registrations/:registrationId', () =
     )
 
     expect(response.status).toBe(200)
-    expect(response.body).toEqual({ status: 'cancelled' })
+    expect(response.body).toEqual({ status: 'cancelled', promotedRegistrationId: null })
 
     const updated = await request(app).get(`/api/training-sessions/${session.id}`)
     expect(updated.body.registered).toBe(session.registered)
+  })
+
+  it('promotes the oldest waitlisted employee when cancelling a confirmed registration', async () => {
+    const allResponse = await request(app).get('/api/training-sessions')
+    const session = allResponse.body.find(
+      (s: { capacity: number; registered: number }) => s.registered < s.capacity
+    )
+    expect(session).toBeDefined()
+
+    const registerResponse = await request(app)
+      .post(`/api/training-sessions/${session.id}/registrations`)
+      .send({ name: 'Cancel Me', email: 'cancelme-promote@example.com' })
+    expect(registerResponse.status).toBe(201)
+
+    const spotsLeft = session.capacity - session.registered - 1
+    for (let i = 0; i < spotsLeft; i++) {
+      await request(app)
+        .post(`/api/training-sessions/${session.id}/registrations`)
+        .send({ name: `Filler ${i}`, email: `filler-promote${i}@example.com` })
+    }
+
+    const waitlistResponse = await request(app)
+      .post(`/api/training-sessions/${session.id}/registrations`)
+      .send({ name: 'Waitlisted Employee', email: 'waitlisted-promote@example.com' })
+    expect(waitlistResponse.status).toBe(202)
+
+    const beforeCancel = await request(app).get(`/api/training-sessions/${session.id}`)
+
+    const response = await request(app).delete(
+      `/api/training-sessions/${session.id}/registrations/${registerResponse.body.id}`
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({
+      status: 'cancelled',
+      promotedRegistrationId: waitlistResponse.body.id,
+    })
+
+    const afterCancel = await request(app).get(`/api/training-sessions/${session.id}`)
+    expect(afterCancel.body.registered).toBe(beforeCancel.body.registered)
   })
 
   it('returns 409 when cancelling an already cancelled registration', async () => {
@@ -237,7 +277,7 @@ describe('DELETE /api/training-sessions/:id/registrations/:registrationId', () =
     )
 
     expect(response.status).toBe(200)
-    expect(response.body).toEqual({ status: 'cancelled' })
+    expect(response.body).toEqual({ status: 'cancelled', promotedRegistrationId: null })
 
     const afterCancel = await request(app).get(`/api/training-sessions/${session.id}`)
     expect(afterCancel.body.registered).toBe(beforeCancel.body.registered)

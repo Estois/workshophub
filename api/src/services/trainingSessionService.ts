@@ -69,14 +69,39 @@ export async function registerForSession(
 export type CancellationResult =
   | { status: 'not_found' }
   | { status: 'already_cancelled' }
-  | { status: 'cancelled' }
+  | { status: 'cancelled'; promotedRegistrationId: number | null }
 
-// WH-5 trigger point: promotion algorithm is not implemented yet, this is a no-op seam.
-export async function promoteFromWaitlist(
-  _tx: Prisma.TransactionClient,
-  _sessionId: number
-): Promise<void> {
+// WH-8 trigger point: notification delivery is not implemented yet, this is a no-op seam.
+function notifyPromotion(_registrationId: number): void {
   return
+}
+
+export async function promoteFromWaitlist(
+  tx: Prisma.TransactionClient,
+  sessionId: number
+): Promise<number | null> {
+  const candidate = await tx.registration.findFirst({
+    where: { trainingSessionId: sessionId, status: 'waitlisted' },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+  })
+  if (!candidate) {
+    return null
+  }
+
+  const update = await tx.registration.updateMany({
+    where: { id: candidate.id, status: 'waitlisted' },
+    data: { status: 'confirmed' },
+  })
+  if (update.count === 0) {
+    return null
+  }
+
+  await tx.trainingSession.update({
+    where: { id: sessionId },
+    data: { registered: { increment: 1 } },
+  })
+  notifyPromotion(candidate.id)
+  return candidate.id
 }
 
 export async function cancelRegistration(
@@ -105,8 +130,8 @@ export async function cancelRegistration(
         where: { id: sessionId },
         data: { registered: { decrement: 1 } },
       })
-      await promoteFromWaitlist(tx, sessionId)
-      return { status: 'cancelled' }
+      const promotedRegistrationId = await promoteFromWaitlist(tx, sessionId)
+      return { status: 'cancelled', promotedRegistrationId }
     }
 
     const update = await tx.registration.updateMany({
@@ -116,6 +141,6 @@ export async function cancelRegistration(
     if (update.count === 0) {
       return { status: 'already_cancelled' }
     }
-    return { status: 'cancelled' }
+    return { status: 'cancelled', promotedRegistrationId: null }
   })
 }
