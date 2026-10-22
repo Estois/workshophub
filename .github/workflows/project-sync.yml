@@ -14,6 +14,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
           OWNER: Estois
+          PROJECT_OWNER: "@me"
           PROJECT_NUMBER: 1
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
@@ -27,7 +28,7 @@ jobs:
           fi
           echo "Linked issue: #$issue_number"
 
-          item_list_json=$(gh project item-list "$PROJECT_NUMBER" --owner "$OWNER" --format json)
+          item_list_json=$(gh project item-list "$PROJECT_NUMBER" --owner "$PROJECT_OWNER" --format json)
           if [ $? -ne 0 ]; then
             echo "::error::gh project item-list failed — see output above. Not treating this as 'issue not on board'."
             exit 1
@@ -42,8 +43,8 @@ jobs:
             exit 0
           fi
 
-          project_id=$(gh project view "$PROJECT_NUMBER" --owner "$OWNER" --format json | jq -r '.id')
-          field_json=$(gh project field-list "$PROJECT_NUMBER" --owner "$OWNER" --format json)
+          project_id=$(gh project view "$PROJECT_NUMBER" --owner "$PROJECT_OWNER" --format json | jq -r '.id')
+          field_json=$(gh project field-list "$PROJECT_NUMBER" --owner "$PROJECT_OWNER" --format json)
           field_id=$(echo "$field_json" | jq -r '.fields[] | select(.name == "Status") | .id')
           done_option_id=$(echo "$field_json" | jq -r '.fields[] | select(.name == "Status") | .options[] | select(.name == "Done") | .id')
 
