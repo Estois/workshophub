@@ -1,2 +1,7 @@
 bash scripts/reasons-lint.sh || exit 1
 bash scripts/branch-name-check.sh || exit 1
+bash scripts/no-prisma-in-routes.sh || exit 1
+bash scripts/no-raw-sql.sh || exit 1
+bash scripts/safeguards-quality.sh || exit 1
+bash scripts/test-file-required.sh || exit 1
+bash scripts/branch-up-to-date.sh || exit 1
