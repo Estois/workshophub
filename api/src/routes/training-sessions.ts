@@ -7,6 +7,7 @@ import {
   cancelRegistration,
   getRegistrationsForSession,
 } from '../services/trainingSessionService'
+import { getAuditHistory } from '../services/auditLogService'
 
 const router: IRouter = Router()
 
@@ -145,6 +146,43 @@ router.delete('/:id/registrations/:registrationId', async (req: Request, res: Re
   } catch (error) {
     console.error('Error cancelling registration:', error)
     res.status(500).json({ error: 'Failed to cancel registration' })
+  }
+})
+
+router.get('/:id/registrations/:registrationId/audit', async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10)
+    if (isNaN(id)) {
+      res.status(400).json({ error: 'Invalid session ID' })
+      return
+    }
+
+    const registrationId = parseInt(req.params.registrationId, 10)
+    if (isNaN(registrationId)) {
+      res.status(400).json({ error: 'Invalid registration ID' })
+      return
+    }
+
+    const result = await getAuditHistory(id, registrationId)
+
+    if (result.status === 'not_found') {
+      res.status(404).json({ error: 'Registration not found' })
+      return
+    }
+
+    res.status(200).json({
+      registrationId,
+      history: result.history.map((entry) => ({
+        id: entry.id,
+        fromStatus: entry.fromStatus,
+        toStatus: entry.toStatus,
+        changedAt: entry.changedAt,
+        reason: entry.reason,
+      })),
+    })
+  } catch (error) {
+    console.error('Error fetching audit history for registration:', error)
+    res.status(500).json({ error: 'Failed to fetch audit history for registration' })
   }
 })
 

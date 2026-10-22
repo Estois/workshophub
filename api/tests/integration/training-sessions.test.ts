@@ -375,3 +375,72 @@ describe('GET /api/training-sessions/:id/registrations', () => {
     expect(response.status).toBe(400)
   })
 })
+
+describe('GET /api/training-sessions/:id/registrations/:registrationId/audit', () => {
+  it('returns the transition history for a registered-then-cancelled registration', async () => {
+    const allResponse = await request(app).get('/api/training-sessions')
+    const session = allResponse.body.find(
+      (s: { capacity: number; registered: number }) => s.registered < s.capacity
+    )
+    expect(session).toBeDefined()
+
+    const registerResponse = await request(app)
+      .post(`/api/training-sessions/${session.id}/registrations`)
+      .send({ name: 'Audit Me', email: 'audit-me@example.com' })
+    expect(registerResponse.status).toBe(201)
+
+    await request(app).delete(
+      `/api/training-sessions/${session.id}/registrations/${registerResponse.body.id}`
+    )
+
+    const response = await request(app).get(
+      `/api/training-sessions/${session.id}/registrations/${registerResponse.body.id}/audit`
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.body.registrationId).toBe(registerResponse.body.id)
+    expect(response.body.history).toEqual([
+      expect.objectContaining({ fromStatus: null, toStatus: 'confirmed' }),
+      expect.objectContaining({ fromStatus: 'confirmed', toStatus: 'cancelled' }),
+    ])
+  })
+
+  it('returns 404 when the registration does not exist', async () => {
+    const allResponse = await request(app).get('/api/training-sessions')
+    const session = allResponse.body[0]
+
+    const response = await request(app).get(
+      `/api/training-sessions/${session.id}/registrations/999999/audit`
+    )
+
+    expect(response.status).toBe(404)
+    expect(response.body.error).toBeDefined()
+  })
+
+  it('returns 404 when the registration belongs to a different session', async () => {
+    const allResponse = await request(app).get('/api/training-sessions')
+    expect(allResponse.body.length).toBeGreaterThanOrEqual(2)
+    const [sessionA, sessionB] = allResponse.body
+
+    const registerResponse = await request(app)
+      .post(`/api/training-sessions/${sessionA.id}/registrations`)
+      .send({ name: 'Wrong Session', email: 'wrong-session@example.com' })
+
+    const response = await request(app).get(
+      `/api/training-sessions/${sessionB.id}/registrations/${registerResponse.body.id}/audit`
+    )
+
+    expect(response.status).toBe(404)
+  })
+
+  it('returns 400 for an invalid registration ID', async () => {
+    const allResponse = await request(app).get('/api/training-sessions')
+    const session = allResponse.body[0]
+
+    const response = await request(app).get(
+      `/api/training-sessions/${session.id}/registrations/not-a-number/audit`
+    )
+
+    expect(response.status).toBe(400)
+  })
+})

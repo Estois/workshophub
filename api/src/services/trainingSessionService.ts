@@ -25,6 +25,15 @@ export async function getSessionById(id: number) {
   return { ...rest, waitlistCount: _count.registrations }
 }
 
+async function recordTransition(
+  tx: Prisma.TransactionClient,
+  registrationId: number,
+  fromStatus: string | null,
+  toStatus: string
+): Promise<void> {
+  await tx.auditLog.create({ data: { registrationId, fromStatus, toStatus, reason: null } })
+}
+
 export type RegistrationResult =
   | { status: 'not_found' }
   | { status: 'confirmed'; registration: Registration }
@@ -50,6 +59,7 @@ export async function registerForSession(
       const registration = await tx.registration.create({
         data: { name, email, status: 'confirmed', trainingSessionId: sessionId },
       })
+      await recordTransition(tx, registration.id, null, 'confirmed')
       notifyEmployee({
         name: registration.name,
         email: registration.email,
@@ -63,6 +73,7 @@ export async function registerForSession(
     const registration = await tx.registration.create({
       data: { name, email, status: 'waitlisted', trainingSessionId: sessionId },
     })
+    await recordTransition(tx, registration.id, null, 'waitlisted')
     const position = await tx.registration.count({
       where: {
         trainingSessionId: sessionId,
@@ -120,6 +131,7 @@ export async function promoteFromWaitlist(
   if (update.count === 0) {
     return null
   }
+  await recordTransition(tx, candidate.id, 'waitlisted', 'confirmed')
 
   await tx.trainingSession.update({
     where: { id: sessionId },
@@ -162,6 +174,7 @@ export async function cancelRegistration(
       if (update.count === 0) {
         return { status: 'already_cancelled' }
       }
+      await recordTransition(tx, registrationId, 'confirmed', 'cancelled')
       await tx.trainingSession.update({
         where: { id: sessionId },
         data: { registered: { decrement: 1 } },
@@ -177,6 +190,7 @@ export async function cancelRegistration(
     if (update.count === 0) {
       return { status: 'already_cancelled' }
     }
+    await recordTransition(tx, registrationId, 'waitlisted', 'cancelled')
     return { status: 'cancelled', promotedRegistrationId: null }
   })
 }
