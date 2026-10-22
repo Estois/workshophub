@@ -39,7 +39,22 @@ model Registration {
   createdAt         DateTime @default(now())
 
   trainingSession TrainingSession @relation(fields: [trainingSessionId], references: [id])
+  auditLogs       AuditLog[]
 
   @@index([trainingSessionId, status, createdAt])
   @@map("registrations")
+}
+
+model AuditLog {
+  id             Int      @id @default(autoincrement())
+  registrationId Int
+  fromStatus     String?
+  toStatus       String
+  changedAt      DateTime @default(now())
+  reason         String?
+
+  registration Registration @relation(fields: [registrationId], references: [id])
+
+  @@index([registrationId, changedAt])
+  @@map("audit_logs")
 }

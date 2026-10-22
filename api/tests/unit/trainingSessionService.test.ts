@@ -31,6 +31,9 @@ jest.mock('../../src/lib/prisma', () => ({
       findFirst: jest.fn(),
       updateMany: jest.fn(),
     },
+    auditLog: {
+      create: jest.fn(),
+    },
     $transaction: jest.fn(),
   },
 }))
@@ -47,6 +50,7 @@ const mockRegistrationFindFirst = prisma.registration.findFirst as jest.Mock
 const mockRegistrationUpdateMany = prisma.registration.updateMany as jest.Mock
 const mockTransaction = prisma.$transaction as jest.Mock
 const mockNotifyEmployee = notifyEmployee as jest.Mock
+const mockAuditLogCreate = prisma.auditLog.create as jest.Mock
 
 const mockSession = {
   id: 1,
@@ -159,6 +163,9 @@ describe('registerForSession', () => {
         trainingSessionId: 1,
       },
     })
+    expect(mockAuditLogCreate).toHaveBeenCalledWith({
+      data: { registrationId: 1, fromStatus: null, toStatus: 'confirmed', reason: null },
+    })
   })
 
   it('returns waitlisted with position when the session is full', async () => {
@@ -183,6 +190,9 @@ describe('registerForSession', () => {
     })
     expect(mockRegistrationCreate).toHaveBeenCalledWith({
       data: { name: 'Bob', email: 'bob@example.com', status: 'waitlisted', trainingSessionId: 1 },
+    })
+    expect(mockAuditLogCreate).toHaveBeenCalledWith({
+      data: { registrationId: 2, fromStatus: null, toStatus: 'waitlisted', reason: null },
     })
   })
 })
@@ -248,6 +258,9 @@ describe('cancelRegistration', () => {
       where: { id: 1 },
       data: { registered: { decrement: 1 } },
     })
+    expect(mockAuditLogCreate).toHaveBeenCalledWith({
+      data: { registrationId: 1, fromStatus: 'confirmed', toStatus: 'cancelled', reason: null },
+    })
   })
 
   it('cancels a confirmed registration and promotes the oldest waitlisted employee', async () => {
@@ -276,6 +289,12 @@ describe('cancelRegistration', () => {
     expect(mockSessionUpdate).toHaveBeenNthCalledWith(2, {
       where: { id: 1 },
       data: { registered: { increment: 1 } },
+    })
+    expect(mockAuditLogCreate).toHaveBeenNthCalledWith(1, {
+      data: { registrationId: 1, fromStatus: 'confirmed', toStatus: 'cancelled', reason: null },
+    })
+    expect(mockAuditLogCreate).toHaveBeenNthCalledWith(2, {
+      data: { registrationId: 5, fromStatus: 'waitlisted', toStatus: 'confirmed', reason: null },
     })
   })
 
@@ -316,6 +335,7 @@ describe('cancelRegistration', () => {
 
     expect(result).toEqual({ status: 'already_cancelled' })
     expect(mockSessionUpdate).not.toHaveBeenCalled()
+    expect(mockAuditLogCreate).not.toHaveBeenCalled()
   })
 
   it('cancels a waitlisted registration without decrementing registered or promoting', async () => {
@@ -335,6 +355,9 @@ describe('cancelRegistration', () => {
     })
     expect(mockSessionUpdate).not.toHaveBeenCalled()
     expect(mockRegistrationFindFirst).not.toHaveBeenCalled()
+    expect(mockAuditLogCreate).toHaveBeenCalledWith({
+      data: { registrationId: 2, fromStatus: 'waitlisted', toStatus: 'cancelled', reason: null },
+    })
   })
 
   it('returns already_cancelled when a concurrent request already cancelled the waitlisted registration', async () => {
