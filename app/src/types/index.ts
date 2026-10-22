@@ -18,3 +18,16 @@ export interface Registration {
   status: 'confirmed' | 'waitlisted'
   position?: number
 }
+
+export interface RegistrationEntry {
+  id: number
+  name: string
+  email: string
+  status: 'confirmed' | 'waitlisted'
+  createdAt: string
+}
+
+export interface RegistrationsBySession {
+  confirmed: RegistrationEntry[]
+  waitlisted: RegistrationEntry[]
+}

@@ -1,4 +1,6 @@
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import TrainingSessionsPage from './pages/TrainingSessionsPage'
+import SessionDetailPage from './pages/SessionDetailPage'
 import './App.css'
 
 function App() {
@@ -9,7 +11,12 @@ function App() {
         <p className="app-tagline">Internal Training Registration System</p>
       </header>
       <main className="app-main">
-        <TrainingSessionsPage />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<TrainingSessionsPage />} />
+            <Route path="/sessions/:id" element={<SessionDetailPage />} />
+          </Routes>
+        </BrowserRouter>
       </main>
     </div>
   )

@@ -283,3 +283,95 @@ describe('DELETE /api/training-sessions/:id/registrations/:registrationId', () =
     expect(afterCancel.body.registered).toBe(beforeCancel.body.registered)
   })
 })
+
+describe('GET /api/training-sessions/:id/registrations', () => {
+  it('returns 200 with confirmed and waitlisted arrays', async () => {
+    const allResponse = await request(app).get('/api/training-sessions')
+    const session = allResponse.body.find(
+      (s: { capacity: number; registered: number }) => s.registered < s.capacity
+    )
+    expect(session).toBeDefined()
+
+    const confirmedResponse = await request(app)
+      .post(`/api/training-sessions/${session.id}/registrations`)
+      .send({ name: 'Confirmed Attendee', email: 'confirmed-view@example.com' })
+    expect(confirmedResponse.status).toBe(201)
+
+    const spotsLeft = session.capacity - session.registered - 1
+    for (let i = 0; i < spotsLeft; i++) {
+      await request(app)
+        .post(`/api/training-sessions/${session.id}/registrations`)
+        .send({ name: `Filler View ${i}`, email: `filler-view${i}@example.com` })
+    }
+
+    const waitlistResponse = await request(app)
+      .post(`/api/training-sessions/${session.id}/registrations`)
+      .send({ name: 'Waitlisted Viewer', email: 'waitlisted-view@example.com' })
+    expect(waitlistResponse.status).toBe(202)
+
+    const response = await request(app).get(`/api/training-sessions/${session.id}/registrations`)
+
+    expect(response.status).toBe(200)
+    expect(response.body.confirmed).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: confirmedResponse.body.id,
+          name: 'Confirmed Attendee',
+          email: 'confirmed-view@example.com',
+          status: 'confirmed',
+        }),
+      ])
+    )
+    expect(response.body.waitlisted).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: waitlistResponse.body.id,
+          name: 'Waitlisted Viewer',
+          email: 'waitlisted-view@example.com',
+          status: 'waitlisted',
+        }),
+      ])
+    )
+    expect(response.body.confirmed[0]).toHaveProperty('createdAt')
+  })
+
+  it('excludes cancelled registrations from the response', async () => {
+    const allResponse = await request(app).get('/api/training-sessions')
+    const session = allResponse.body.find(
+      (s: { capacity: number; registered: number }) => s.registered < s.capacity
+    )
+    expect(session).toBeDefined()
+
+    const registerResponse = await request(app)
+      .post(`/api/training-sessions/${session.id}/registrations`)
+      .send({ name: 'Will Cancel', email: 'willcancel-view@example.com' })
+    expect(registerResponse.status).toBe(201)
+
+    await request(app).delete(
+      `/api/training-sessions/${session.id}/registrations/${registerResponse.body.id}`
+    )
+
+    const response = await request(app).get(`/api/training-sessions/${session.id}/registrations`)
+
+    expect(response.status).toBe(200)
+    expect(response.body.confirmed).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: registerResponse.body.id })])
+    )
+    expect(response.body.waitlisted).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: registerResponse.body.id })])
+    )
+  })
+
+  it('returns 404 for an unknown session', async () => {
+    const response = await request(app).get('/api/training-sessions/999999/registrations')
+
+    expect(response.status).toBe(404)
+    expect(response.body.error).toBeDefined()
+  })
+
+  it('returns 400 for an invalid session ID', async () => {
+    const response = await request(app).get('/api/training-sessions/not-a-number/registrations')
+
+    expect(response.status).toBe(400)
+  })
+})
