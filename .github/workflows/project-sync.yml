@@ -17,6 +17,8 @@ jobs:
           PROJECT_NUMBER: 1
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
+          set -uo pipefail
+
           issue_number=$(echo "$PR_BODY" | grep -ioE '(close[sd]?|fix(e[sd])?|resolve[sd]?)[[:space:]]+(estois/workshophub)?#[0-9]+' | grep -oE '[0-9]+' | head -n1)
 
           if [ -z "$issue_number" ]; then
@@ -25,7 +27,13 @@ jobs:
           fi
           echo "Linked issue: #$issue_number"
 
-          item_id=$(gh project item-list "$PROJECT_NUMBER" --owner "$OWNER" --format json \
+          item_list_json=$(gh project item-list "$PROJECT_NUMBER" --owner "$OWNER" --format json)
+          if [ $? -ne 0 ]; then
+            echo "::error::gh project item-list failed — see output above. Not treating this as 'issue not on board'."
+            exit 1
+          fi
+
+          item_id=$(echo "$item_list_json" \
             | jq -r --arg url "https://github.com/$OWNER/workshophub/issues/$issue_number" \
               '.items[] | select(.content.url == $url) | .id')
 
@@ -40,7 +48,7 @@ jobs:
           done_option_id=$(echo "$field_json" | jq -r '.fields[] | select(.name == "Status") | .options[] | select(.name == "Done") | .id')
 
           if [ -z "$field_id" ] || [ -z "$done_option_id" ]; then
-            echo "Could not resolve Status field or Done option — check the project's Status field configuration."
+            echo "::error::Could not resolve Status field or Done option — check the project's Status field configuration."
             exit 1
           fi
 
