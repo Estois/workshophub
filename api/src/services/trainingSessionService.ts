@@ -1,5 +1,6 @@
 import { Prisma, Registration } from '@prisma/client'
 import prisma from '../lib/prisma'
+import { notifyEmployee } from '../services/notificationService'
 
 export async function getAllSessions() {
   const sessions = await prisma.trainingSession.findMany({
@@ -49,6 +50,13 @@ export async function registerForSession(
       const registration = await tx.registration.create({
         data: { name, email, status: 'confirmed', trainingSessionId: sessionId },
       })
+      notifyEmployee({
+        name: registration.name,
+        email: registration.email,
+        sessionTitle: session.title,
+        sessionDate: session.date,
+        status: 'confirmed',
+      })
       return { status: 'confirmed', registration }
     }
 
@@ -93,11 +101,6 @@ export type CancellationResult =
   | { status: 'already_cancelled' }
   | { status: 'cancelled'; promotedRegistrationId: number | null }
 
-// WH-8 trigger point: notification delivery is not implemented yet, this is a no-op seam.
-function notifyPromotion(_registrationId: number): void {
-  return
-}
-
 export async function promoteFromWaitlist(
   tx: Prisma.TransactionClient,
   sessionId: number
@@ -122,7 +125,18 @@ export async function promoteFromWaitlist(
     where: { id: sessionId },
     data: { registered: { increment: 1 } },
   })
-  notifyPromotion(candidate.id)
+  const session = await tx.trainingSession.findUnique({ where: { id: sessionId } })
+  if (session) {
+    notifyEmployee({
+      name: candidate.name,
+      email: candidate.email,
+      sessionTitle: session.title,
+      sessionDate: session.date,
+      status: 'promoted',
+    }).catch(() => {
+      // fire-and-forget: notification failure must not affect promotion outcome
+    })
+  }
   return candidate.id
 }
 

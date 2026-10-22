@@ -1,18 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import type { TrainingSession, RegistrationsBySession } from '../types'
+import { formatDate } from '../utils/formatDate'
 import './SessionDetailPage.css'
 
 const API_BASE = import.meta.env.VITE_API_URL || ''
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-SG', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
-}
 
 function formatTime(dateStr: string): string {
   return new Date(dateStr).toLocaleTimeString('en-SG', {

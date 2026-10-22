@@ -1,20 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { TrainingSession, Registration } from '../types'
+import { formatDate } from '../utils/formatDate'
+import RegistrationBanner from './RegistrationBanner'
 import './TrainingSessionCard.css'
 
 interface Props {
   session: TrainingSession
   onCancelled: () => void
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-SG', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
 }
 
 function formatTime(dateStr: string): string {
@@ -46,6 +39,15 @@ function TrainingSessionCard({ session, onCancelled }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [cancelled, setCancelled] = useState(false)
   const [cancelError, setCancelError] = useState<string | null>(null)
+  const [bannerDismissed, setBannerDismissed] = useState(false)
+
+  useEffect(() => {
+    if (!result) return
+
+    setBannerDismissed(false)
+    const timer = setTimeout(() => setBannerDismissed(true), 5000)
+    return () => clearTimeout(timer)
+  }, [result])
 
   function handleBack() {
     setShowForm(false)
@@ -151,13 +153,22 @@ function TrainingSessionCard({ session, onCancelled }: Props) {
 
       {result ? (
         <>
-          <p className="session-card__registration-message">
-            {cancelled
-              ? 'Your registration has been cancelled'
-              : result.status === 'confirmed'
-                ? "You're registered!"
-                : `You're on the waitlist, position ${result.position}`}
-          </p>
+          {cancelled ? (
+            <p className="session-card__registration-message">
+              Your registration has been cancelled
+            </p>
+          ) : (
+            !bannerDismissed && (
+              <RegistrationBanner
+                message={
+                  result.status === 'confirmed'
+                    ? `You're registered! ${session.title} on ${formatDate(session.date)}`
+                    : `You're on the waitlist for ${session.title}. We'll let you know if a spot opens up.`
+                }
+                onDismiss={() => setBannerDismissed(true)}
+              />
+            )
+          )}
           {!cancelled && (
             <button className="session-card__cancel-button" onClick={handleCancel}>
               Cancel Registration

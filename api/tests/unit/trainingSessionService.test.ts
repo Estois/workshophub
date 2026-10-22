@@ -7,6 +7,12 @@ import {
   getRegistrationsForSession,
 } from '../../src/services/trainingSessionService'
 import prisma from '../../src/lib/prisma'
+import { notifyEmployee } from '../../src/services/notificationService'
+
+jest.mock('../../src/services/notificationService', () => ({
+  __esModule: true,
+  notifyEmployee: jest.fn().mockResolvedValue(undefined),
+}))
 
 jest.mock('../../src/lib/prisma', () => ({
   __esModule: true,
@@ -40,6 +46,7 @@ const mockRegistrationFindUnique = prisma.registration.findUnique as jest.Mock
 const mockRegistrationFindFirst = prisma.registration.findFirst as jest.Mock
 const mockRegistrationUpdateMany = prisma.registration.updateMany as jest.Mock
 const mockTransaction = prisma.$transaction as jest.Mock
+const mockNotifyEmployee = notifyEmployee as jest.Mock
 
 const mockSession = {
   id: 1,
@@ -272,6 +279,31 @@ describe('cancelRegistration', () => {
     })
   })
 
+  it('still returns a successful cancellation response when notifyEmployee would reject', async () => {
+    mockRegistrationFindUnique.mockResolvedValue({
+      id: 1,
+      status: 'confirmed',
+      trainingSessionId: 1,
+    })
+    mockRegistrationUpdateMany
+      .mockResolvedValueOnce({ count: 1 }) // cancellation
+      .mockResolvedValueOnce({ count: 1 }) // promotion
+    mockSessionUpdate.mockResolvedValue({ id: 1 })
+    mockRegistrationFindFirst.mockResolvedValue({
+      id: 5,
+      status: 'waitlisted',
+      name: 'Waitlisted Employee',
+      email: 'waitlisted@example.com',
+      trainingSessionId: 1,
+    })
+    mockFindUnique.mockResolvedValue({ ...mockSession, id: 1 })
+    mockNotifyEmployee.mockRejectedValueOnce(new Error('notification failed'))
+
+    const result = await cancelRegistration(1, 1)
+
+    expect(result).toEqual({ status: 'cancelled', promotedRegistrationId: 5 })
+  })
+
   it('returns already_cancelled when a concurrent request already cancelled the confirmed registration', async () => {
     mockRegistrationFindUnique.mockResolvedValue({
       id: 1,
@@ -336,6 +368,14 @@ describe('promoteFromWaitlist', () => {
     expect(mockSessionUpdate).not.toHaveBeenCalled()
   })
 
+  it('does not notify when there is no one on the waitlist', async () => {
+    mockRegistrationFindFirst.mockResolvedValue(null)
+
+    await promoteFromWaitlist(prisma, 1)
+
+    expect(mockNotifyEmployee).not.toHaveBeenCalled()
+  })
+
   it('returns null without throwing when a concurrent transaction already promoted the candidate', async () => {
     mockRegistrationFindFirst.mockResolvedValue({ id: 5, status: 'waitlisted' })
     mockRegistrationUpdateMany.mockResolvedValue({ count: 0 })
@@ -344,6 +384,15 @@ describe('promoteFromWaitlist', () => {
 
     expect(result).toBeNull()
     expect(mockSessionUpdate).not.toHaveBeenCalled()
+  })
+
+  it('does not notify when a concurrent transaction already promoted the candidate (0 rows affected)', async () => {
+    mockRegistrationFindFirst.mockResolvedValue({ id: 5, status: 'waitlisted' })
+    mockRegistrationUpdateMany.mockResolvedValue({ count: 0 })
+
+    await promoteFromWaitlist(prisma, 1)
+
+    expect(mockNotifyEmployee).not.toHaveBeenCalled()
   })
 
   it('promotes the oldest waitlisted registration and increments registered', async () => {
@@ -366,6 +415,36 @@ describe('promoteFromWaitlist', () => {
       where: { id: 1 },
       data: { registered: { increment: 1 } },
     })
+  })
+
+  it('notifies the promoted employee with status "promoted" and the session title/name/email', async () => {
+    mockRegistrationFindFirst.mockResolvedValue({
+      id: 5,
+      status: 'waitlisted',
+      name: 'Waitlisted Employee',
+      email: 'waitlisted@example.com',
+      trainingSessionId: 1,
+    })
+    mockRegistrationUpdateMany.mockResolvedValue({ count: 1 })
+    mockSessionUpdate.mockResolvedValue({ id: 1 })
+    mockFindUnique.mockResolvedValue({
+      ...mockSession,
+      id: 1,
+      title: 'TDD in Agentic Development Loop',
+      date: new Date('2026-07-01T09:00:00Z'),
+    })
+
+    await promoteFromWaitlist(prisma, 1)
+
+    expect(mockNotifyEmployee).toHaveBeenCalledTimes(1)
+    expect(mockNotifyEmployee).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Waitlisted Employee',
+        email: 'waitlisted@example.com',
+        sessionTitle: 'TDD in Agentic Development Loop',
+        status: 'promoted',
+      })
+    )
   })
 })
 
