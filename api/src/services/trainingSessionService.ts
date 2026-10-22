@@ -1,5 +1,6 @@
 import { Prisma, Registration } from '@prisma/client'
 import prisma from '../lib/prisma'
+import { notifyEmployee } from '../services/notificationService'
 
 export async function getAllSessions() {
   const sessions = await prisma.trainingSession.findMany({
@@ -48,6 +49,13 @@ export async function registerForSession(
     if (confirmedUpdate.count === 1) {
       const registration = await tx.registration.create({
         data: { name, email, status: 'confirmed', trainingSessionId: sessionId },
+      })
+      notifyEmployee({
+        name: registration.name,
+        email: registration.email,
+        sessionTitle: session.title,
+        sessionDate: session.date,
+        status: 'confirmed',
       })
       return { status: 'confirmed', registration }
     }
