@@ -3,7 +3,7 @@ export type NotifyEmployeeParams = {
   email: string
   sessionTitle: string
   sessionDate: Date
-  status: 'confirmed'
+  status: 'confirmed' | 'promoted'
 }
 
 export async function notifyEmployee(params: NotifyEmployeeParams): Promise<void> {
