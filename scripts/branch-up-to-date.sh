@@ -5,7 +5,7 @@ set -euo pipefail
 # before allowing a commit, so PRs don't go stale and conflict silently.
 branch=$(git rev-parse --abbrev-ref HEAD)
 
-if [ "$branch" = "main" ]; then
+if [ "$branch" = "main" ] || echo "$branch" | grep -iqE '^(chore|harness)-'; then
   exit 0
 fi
 

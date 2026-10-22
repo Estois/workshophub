@@ -13,9 +13,9 @@ EXEMPT_FILES=(
 
 status=0
 
-shopt -s nullglob
+shopt -s nullglob globstar
 files=(api/src/**/*.ts)
-shopt -u nullglob
+shopt -u nullglob globstar
 
 for file in "${files[@]}"; do
   exempt=0
