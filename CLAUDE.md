@@ -4,6 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 # WorkshopHub
 
+**Project status: archived and unmaintained (as of 2026-11-02).** The training course is over. Do not start new feature work, dependency bumps or fixes in this repo unless the user explicitly asks.
+
 Internal training registration system (employees browse/register for training sessions). This repo is the **baseline template for a 3-day AI-assisted delivery training** — several features are intentionally unimplemented as trainee exercises (see below), and some intentional vulnerabilities are seeded for later workshops.
 
 pnpm monorepo, two packages:

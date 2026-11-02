@@ -1,5 +1,7 @@
 # WorkshopHub
 
+> **Status: archived. No longer updated or maintained (as of 2026-11-02).** The training course this repository supported has ended. No further features, fixes or dependency updates are planned. The code contains intentionally seeded vulnerabilities (see `CLAUDE.md`). Do not deploy it.
+
 WorkshopHub is an internal training registration system. Employees browse and register for internal training sessions. This repository is the baseline codebase template for the 3-day AI-assisted software delivery training.
 
 ## Quick Start
